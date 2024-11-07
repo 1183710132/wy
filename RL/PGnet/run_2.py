@@ -4,11 +4,12 @@ import numpy as np
 import torch
 import sys
 from matplotlib import pyplot as plt
+import math
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from CloudSimPy.core.machine import MachineConfig
 from pgnet import *
-from CloudSimPy.playground.DAG.utils.csv_reader_v2 import CSVReader
+from CloudSimPy.playground.DAG.utils.csv_reader import CSVReader
 from CloudSimPy.playground.DAG.utils.feature_functions import features_extract_func_ac, features_normalize_func_ac
 from CloudSimPy.playground.DAG.algorithm.DeepJS.reward_giver import MakespanRewardGiver
 from CloudSimPy.playground.DAG.adapter.episode import Episode
@@ -16,9 +17,9 @@ from pgnet import PGnet, Agent
 
 
 # 初始化仿真数据
-machine_num = 3
+machine_num = 4
 job_num = 30
-train_iter = 20
+train_iter = 50
 
 # 初始化奖励函数
 reward_giver = MakespanRewardGiver(-1)
@@ -28,7 +29,8 @@ input_dim = 14
 model_path = os.getcwd()+'/RL/model/{}'.format('PGnetV3')
 
 # 要注意如果机器的cpu或者memory不够，就永远不会训练结束
-machine_config = [MachineConfig(8, 1024, 1, mips=2, ) for i in range(machine_num)]
+machine_config = [MachineConfig(2 * pow(2, i), 1024*math.pow(10, i+1), 1, mips=2, price=10) for i in range(machine_num)]
+
 
 def getTracjectory(trajectory):
     observations = []
@@ -123,10 +125,13 @@ def read_data():
     for t in task_type:
         for i in range(10):
             job_data = '{}\\RL\\csv_2\\{}_{}_{}.csv'.format(os.getcwd(), t, task_num, i)
+            print('start in data : ', t, i)
             loss_list += train(agent, job_data)
     plt.figure()
     plt.plot(range(len(loss_list)), loss_list)
     plt.show()
+    agent.save(model_path + '/model.pth')
+    test(agent, job_data)
 
 if __name__ == '__main__':
     read_data()

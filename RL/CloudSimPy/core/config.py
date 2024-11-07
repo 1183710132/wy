@@ -1,25 +1,29 @@
 class TaskInstanceConfig(object):
-    def __init__(self, instance_id, cpu, memory, parents_indices=None,disk=0, duration=1):
-        self.instance_id = instance_id
+    def __init__(self, task_config):
+        self.cpu = task_config.cpu
+        self.memory = task_config.memory
+        self.disk = task_config.disk
+        self.duration = task_config.duration
+
+
+class TaskConfig(object):
+    def __init__(self, task_index, instances_number, cpu, memory, disk, duration, parent_indices=None):
+        self.task_index = task_index
+        self.instances_number = instances_number
         self.cpu = cpu
         self.memory = memory
         self.disk = disk
         self.duration = duration
-        self.parents = parents_indices
+        self.parent_indices = parent_indices
 
-
-class TaskConfig(object):
-    def __init__(self, task_index, task_instance_configs, parent_indices=None):
-        self.task_index = task_index
-        self.instances_number = len(task_instance_configs)
-        if len(task_instance_configs) > 0:
-            self.parent_indices = task_instance_configs[0].parents
-        else:
-            self.parent_indices = parent_indices
-        self.task_instances = task_instance_configs
 
 class JobConfig(object):
-    def __init__(self, idx, submit_time, task_configs):
+    def __init__(self, idx, submit_time, task_configs, parent_indices=None):
         self.submit_time = submit_time
         self.task_configs = task_configs
         self.id = idx
+        if len(task_configs) < 1:
+            parent_indices = []
+        else:
+            parent_indices = task_configs[0].parent_indices
+        self.parent_indices = parent_indices

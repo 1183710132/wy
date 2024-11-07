@@ -1,7 +1,7 @@
 import ast
 
 # 父节点信息提取
-def father_task_indices(task_id, task_type, job_id):
+def father_task_indices(task_id, task_type):
     father_indices = []
 
     if task_id.find('task_') != -1:

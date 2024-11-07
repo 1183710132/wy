@@ -1,10 +1,11 @@
-from CloudSimPy.core.machine import Machine
+from core.machine import Machine
 
 
 class Cluster(object):
     def __init__(self):
         self.machines = []
         self.jobs = []
+        self.all_jobs = {}
 
     @property
     def unfinished_jobs(self):
@@ -72,6 +73,7 @@ class Cluster(object):
 
     def add_job(self, job):
         self.jobs.append(job)
+        self.all_jobs[job.id] = job
 
     @property
     def cpu(self):

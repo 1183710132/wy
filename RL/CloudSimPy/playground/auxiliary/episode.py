@@ -1,12 +1,8 @@
 import simpy
-
-import sys
-sys.path.append('CloudSimPy/')
-
-from CloudSimPy.core.cluster import Cluster
-from CloudSimPy.core.scheduler import Scheduler
-from CloudSimPy.core.broker import Broker
-from CloudSimPy.core.simulation import Simulation
+from core.cluster import Cluster
+from core.scheduler import Scheduler
+from core.broker import Broker
+from core.simulation import Simulation
 
 
 class Episode(object):

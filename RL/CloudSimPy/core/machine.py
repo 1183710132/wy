@@ -4,7 +4,7 @@ from enum import Enum
 class MachineConfig(object):
     idx = 0
 
-    def __init__(self, cpu_capacity, memory_capacity, disk_capacity, cpu=None, memory=None, disk=None, mips=2000, price=0.1):
+    def __init__(self, cpu_capacity, memory_capacity, disk_capacity, cpu=None, memory=None, disk=None, mips=None, price=None):
         self.cpu_capacity = cpu_capacity
         self.memory_capacity = memory_capacity
         self.disk_capacity = disk_capacity
@@ -13,10 +13,10 @@ class MachineConfig(object):
         self.memory = memory_capacity if memory is None else memory
         self.disk = disk_capacity if disk is None else disk
 
+        self.id = MachineConfig.idx
+
         self.mips = mips
         self.price = price
-
-        self.id = MachineConfig.idx
         MachineConfig.idx += 1
 
 
@@ -34,7 +34,6 @@ class Machine(object):
         self.disk_capacity = machine_config.disk_capacity
         self.cpu = machine_config.cpu
         self.memory = machine_config.memory
-        # 代表磁盘
         self.disk = machine_config.disk
         self.mips = machine_config.mips
         self.price = machine_config.price

@@ -1,8 +1,7 @@
-from CloudSimPy.core.config import *
+from core.config import *
 
 
 class Task(object):
-
     def __init__(self, env, job, task_config):
         self.env = env
         self.job = job
@@ -10,32 +9,22 @@ class Task(object):
         self.task_config = task_config
         self._ready = False
         self._parents = None
+
         self.task_instances = []
-        for task_instance in task_config.task_instances:
-            self.task_instances.append(TaskInstance(env, self, task_instance))
+        task_instance_config = TaskInstanceConfig(task_config)
+        for task_instance_index in range(int(self.task_config.instances_number)):
+            self.task_instances.append(TaskInstance(self.env, self, task_instance_index, task_instance_config))
+        self.next_instance_pointer = 0
 
     @property
     def id(self):
         return str(self.job.id) + '-' + str(self.task_index)
 
     @property
-    def parents(self):
-        # 这里会有一个bug，就是task的parents取的是同一个job中的task，所以如果parents不在同一个job中，会取不到parents
-        if self._parents is None:
-            if self.task_config.parent_indices is None:
-                raise ValueError("Task_config's parent_indices should not be None.")
-            self._parents = []
-            for parent_index in self.task_config.parent_indices:
-                self._parents.append(self.job.tasks_map[parent_index])
-        return self._parents
-
-    @property
     def ready(self):
         if not self._ready:
-            for p in self.parents:
-                if not p.finished:
-                    return False
-            self._ready = True
+            if self.job.ready:
+                self._ready = True
         return self._ready
 
     @property
@@ -53,10 +42,6 @@ class Task(object):
             if task_instance.finished:
                 ls.append(task_instance)
         return ls
-    
-    # def accommodate(self, machine):
-    #     ready_instance = []
-    #     for i in self.
 
     # the most heavy
     def start_task_instance(self, machine):
@@ -122,6 +107,45 @@ class Job(object):
         for task_config in job_config.task_configs:
             task_index = task_config.task_index
             self.tasks_map[task_index] = Job.task_cls(env, self, task_config)
+        
+        self._parents = None
+        self.cluster = None
+
+        self._ready = False
+        self._finished = False
+
+    
+    def attach(self, cluster):
+        self.cluster = cluster
+
+    @property
+    def ready(self):
+        if not self._ready:
+            for p in self.parents:
+                if not p.finished:
+                    return False
+            self._ready = True
+        return self._ready
+    
+    @property
+    def finished(self):
+        if not self._finished:
+            for _, task in self.tasks_map.items():
+                if not task.finished:
+                    return False
+            self._finished = True
+        return self._finished
+
+    @property
+    def parents(self):
+        if self._parents is None:
+            if self.job_config.parent_indices is None:
+                raise ValueError("Job_config's parent_indices should not be None.")
+            self._parents = []
+            for parent_index in self.job_config.parent_indices:
+                if parent_index in self.cluster.all_jobs.keys():
+                    self._parents.append(self.cluster.all_jobs[parent_index])
+        return self._parents
 
     @property
     def tasks(self):
@@ -210,10 +234,10 @@ class Job(object):
 
 
 class TaskInstance(object):
-    def __init__(self, env, task, task_instance_config):
+    def __init__(self, env, task, task_instance_index, task_instance_config):
         self.env = env
         self.task = task
-        self.task_instance_index = task_instance_config.instance_id
+        self.task_instance_index = task_instance_index
         self.config = task_instance_config
         self.cpu = task_instance_config.cpu
         self.memory = task_instance_config.memory

@@ -1,11 +1,13 @@
 from operator import attrgetter
 import pandas as pd
 import numpy as np
+import sys
+import os
 import ast
 
-
-from CloudSimPy.core.job import JobConfig, TaskConfig
-from CloudSimPy.playground.DAG.utils.feature_synthesize import father_task_indices
+sys.path.append(os.getcwd() + '\\RL\CloudSimPy')
+from core.job import JobConfig, TaskConfig
+from playground.DAG.utils.feature_synthesize import father_task_indices
 
 
 class CSVReader(object):
@@ -13,7 +15,6 @@ class CSVReader(object):
         self.filename = filename
         df = pd.read_csv(self.filename)
 
-        df.job_id = df.job_id.astype(dtype=str)
         df.instances_num = df.instances_num.astype(dtype=int)
 
         job_task_map = {}
@@ -23,6 +24,7 @@ class CSVReader(object):
             job_id = series.job_id
             task_id = series.task_id
             parent_indices = ast.literal_eval(series.parents)
+
             cpu = series.cpu
             memory = series.memory
             disk = series.disk

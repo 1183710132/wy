@@ -1,5 +1,5 @@
-from CloudSimPy.core import job as job_module
-from CloudSimPy.playground.DAG.utils.feature_synthesize import task_features
+from core import job as job_module
+from playground.DAG.utils.feature_synthesize import task_features
 
 
 # One way to add feature property
