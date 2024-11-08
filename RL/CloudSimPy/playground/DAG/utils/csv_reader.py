@@ -4,8 +4,7 @@ import numpy as np
 import sys
 import os
 import ast
-
-sys.path.append(os.getcwd() + '\\RL\CloudSimPy')
+sys.path.append('CloudSimPy')
 from core.job import JobConfig, TaskConfig
 from playground.DAG.utils.feature_synthesize import father_task_indices
 

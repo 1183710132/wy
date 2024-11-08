@@ -26,7 +26,7 @@ reward_giver = MakespanRewardGiver(-1)
 hidden_dim = 32
 input_dim = 14
 
-model_path = os.getcwd()+'/RL/model/{}'.format('PGnetV3')
+model_path = os.getcwd()+'/model/{}'.format('PGnetV3')
 
 # 要注意如果机器的cpu或者memory不够，就永远不会训练结束
 machine_config = [MachineConfig(2 * pow(2, i), 1024*math.pow(10, i+1), 1, mips=2, price=10) for i in range(machine_num)]
@@ -124,7 +124,7 @@ def read_data():
     loss_list = []
     for t in task_type:
         for i in range(10):
-            job_data = '{}\\RL\\csv_2\\{}_{}_{}.csv'.format(os.getcwd(), t, task_num, i)
+            job_data = '{}/csv_2/{}_{}_{}.csv'.format(os.getcwd(), t, task_num, i)
             print('start in data : ', t, i)
             loss_list += train(agent, job_data)
     plt.figure()
