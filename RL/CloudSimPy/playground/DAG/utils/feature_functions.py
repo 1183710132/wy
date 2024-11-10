@@ -3,10 +3,8 @@ import numpy as np
 
 def features_extract_func(task):
     return [task.task_config.cpu, task.task_config.memory,
-            task.task_config.duration, task.waiting_task_instances_number,
             task.feature['first_layer_task'], task.feature['first_layer_instance'],
-            task.feature['layers_task'], task.feature['child_task_numbers'],
-            task.feature['child_instance_numbers']]
+            task.feature['layers_task'], task.feature['child_task_numbers']]
 
 
 def features_extract_func_ac(task):

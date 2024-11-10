@@ -47,3 +47,14 @@ class AverageCompletionRewardGiver(RewardGiver):
         cluster = self.simulation.cluster
         unfinished_task_len = len(cluster.unfinished_tasks)
         return - unfinished_task_len
+
+class ComputePriceRewardGiver(MakespanRewardGiver):
+    name = 'CP'
+
+    def get_reward(self):
+        super().get_reward()
+        machines = self.simulation.cluster.machines
+        price = 0
+        for m in machines:
+            price += (m.machine_config.cpu-m.cpu)*m.price
+        return self.reward_per_timestamp - price

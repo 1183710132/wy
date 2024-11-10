@@ -13,7 +13,8 @@ class CSVReader(object):
     def __init__(self, filename):
         self.filename = filename
         df = pd.read_csv(self.filename)
-
+        df['job_id'] = df['job_id'].astype(str)
+        df['task_id'] = df['task_id'].astype(str)
         df.instances_num = df.instances_num.astype(dtype=int)
 
         job_task_map = {}

@@ -3,12 +3,14 @@ import pandas as pd
 import os
 import ast
 
-directory = 'RL\\xml'
+nums = 10
+
+directory = 'xml/{}/'.format(nums)
 for fileName in os.listdir(directory):
     if not fileName.endswith('.xml'):
         continue
     # 读取 XML 文件
-    with open(directory+'\\'+fileName, 'r', encoding='utf-8') as file:
+    with open(directory+fileName, 'r', encoding='utf-8') as file:
         xml_content = file.read()
 
     # 将 XML 转换为字典
@@ -63,4 +65,4 @@ for fileName in os.listdir(directory):
     #     df.loc[i, 'parents'] = str(parents_task)
 
     fileName = fileName.replace('xml', 'csv')
-    df.to_csv('RL\\csv_2\\' + fileName)
+    df.to_csv('csv_2/{}/'.format(nums) + fileName)

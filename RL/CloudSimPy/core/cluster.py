@@ -1,5 +1,5 @@
 from core.machine import Machine
-
+import math
 
 class Cluster(object):
     def __init__(self):
@@ -98,6 +98,10 @@ class Cluster(object):
     @property
     def disk_capacity(self):
         return sum([machine.disk_capacity for machine in self.machines])
+
+    @property
+    def mips(self):
+        return sum([machine.mips for machine in self.machines])/len(self.machines)
 
     @property
     def state(self):
