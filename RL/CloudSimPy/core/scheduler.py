@@ -25,8 +25,10 @@ class Scheduler(object):
             else:
                 task.start_task_instance(machine)
 
-    def run(self):
+    def run(self, max_step=1000):
         while not self.simulation.finished:
             self.make_decision()
             yield self.env.timeout(1)
+            if self.env.now > max_step:
+                break
         self.destroyed = True

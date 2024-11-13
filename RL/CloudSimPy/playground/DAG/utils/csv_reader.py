@@ -66,16 +66,21 @@ class CSVReader(object):
         print('Jobs number: ', len(ret))
         print('Tasks number:', tasks_number)
 
+        cpu_mean = np.mean(task_instances_cpu)
+        cpu_std = np.std(task_instances_cpu)
+        memory_mean = np.mean(task_instances_memory)
+        memory_std = np.std(task_instances_memory)
+        
         print('Task instances number mean: ', np.mean(task_instances_numbers))
         print('Task instances number std', np.std(task_instances_numbers))
 
-        print('Task instances cpu mean: ', np.mean(task_instances_cpu))
-        print('Task instances cpu std: ', np.std(task_instances_cpu))
+        print('Task instances cpu mean: ', cpu_mean)
+        print('Task instances cpu std: ', cpu_std)
 
-        print('Task instances memory mean: ', np.mean(task_instances_memory))
-        print('Task instances memory std: ', np.std(task_instances_memory))
+        print('Task instances memory mean: ', memory_mean)
+        print('Task instances memory std: ', memory_std)
 
         print('Task instances duration mean: ', np.mean(task_instances_durations))
         print('Task instances duration std: ', np.std(task_instances_durations))
 
-        return ret
+        return ret, [np.max(task_instances_cpu), np.min(task_instances_cpu), np.max(task_instances_memory), np.min(task_instances_memory)]

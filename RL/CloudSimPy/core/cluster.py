@@ -6,6 +6,7 @@ class Cluster(object):
         self.machines = []
         self.jobs = []
         self.all_jobs = {}
+        self.task_instance_features = []
 
     @property
     def unfinished_jobs(self):

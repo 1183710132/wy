@@ -1,15 +1,10 @@
 import numpy as np
 
 
-def features_extract_func(task):
-    return [task.task_config.cpu, task.task_config.memory,
+def features_extract_func(task, task_instance_features):
+    return [task.task_config.cpu, (task.task_config.memory-task_instance_features[3])/(task_instance_features[2]-task_instance_features[3]),
             task.feature['first_layer_task'], task.feature['first_layer_instance'],
             task.feature['layers_task'], task.feature['child_task_numbers']]
-
-
-def features_extract_func_ac(task):
-    return features_extract_func(task) + [task.task_config.instances_number, len(task.running_task_instances),
-                                          len(task.finished_task_instances)]
 
 
 def features_normalize_func(x):

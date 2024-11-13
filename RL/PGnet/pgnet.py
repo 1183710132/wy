@@ -15,19 +15,20 @@ class PolicyNet(nn.Module):
             nn.Linear(hidden_dim//2, output_dim)
         )
 
-    def forward(self, x):
+    def forward(self, x, temperature=1):
         x = self.layer(x)
         # 输出的是概率，所以要做标准化
-        x = torch.softmax(x, dim=0)
+        x = torch.softmax(x/temperature, dim=0)
         return x
 
 class Node(object):
 
-    def __init__(self, observation, action, prob, reward, clock):
+    def __init__(self, observation, action, prob, logpro, reward, clock):
         # 定义观测状态，动作空间，奖励和时钟
         self.observation = observation
         self.action = action
         self.action_prob = prob
+        self.action_logpro = logpro
         self.reward = reward
         self.clock = clock
         self.loss = None
@@ -44,8 +45,8 @@ class Agent(object):
         self.network = PolicyNet(self.input_dim, self.hidden_dim, self.output_dim).to(self.device)
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=lr)
 
-    def select_action(self, observation):
-        logits = self.network.forward(observation)
+    def select_action(self, observation, temperature=1):
+        logits = self.network.forward(observation, temperature=temperature)
         # 这里有个bug，如果只有一个候选时，直接squeeze shape=[]，应该保留一维
         return torch.squeeze(logits, dim=-1)
 
@@ -105,18 +106,25 @@ class Agent(object):
             adv_n = adv_n_
         return q_n, adv_n
     
-    def update_parameters(self, actions, rewards, advantages):
+    def update_parameters(self, actions, actions_logpro, rewards, advantages, lamb=1):
         loss = []
-        for action, reward, adv in zip(actions, rewards, advantages):
+        entropy = []
+        for action, act_log, reward, adv in zip(actions, actions_logpro, rewards, advantages):
             l = []
-            for a, r, v in zip(action, reward, adv):
+            e = []
+            for a, alp, r, v in zip(action, act_log, reward, adv):
                 if a is None:
                     continue
-                l.append(-a * (r-v))
+                l.append(-alp * (r-v))
+                e.append(-a * alp)
             loss.append(torch.stack(l))
+            entropy.append(torch.stack(e))
+
+        # 对模型进行熵正则化惩罚
         loss = torch.cat(loss, dim=0).mean(dim=0)
+        entropy = torch.cat(entropy, dim=0).sum(dim=0)
         self.optimizer.zero_grad()
-        loss = loss.mean()
+        loss = loss.mean() - lamb * entropy.mean()
         self.loss = loss.item()
         loss.backward()
         self.optimizer.step()
@@ -145,13 +153,15 @@ class PGnet(object):
         features = []
         for machine, task in valid_pairs:
             # 特征构成是由机器的cpu，机器内存和task的特征来构成的
-            features.append([machine.cpu, machine.memory, machine.mips, machine.price, task.task_config.memory/machine.mips] + self.features_extract_func(task))
+            features.append([machine.cpu, machine.memory/1024, machine.mips, machine.price, task.task_config.memory/machine.mips] + self.features_extract_func(task))
         return features
     
     def global_features(self, cluster):
         # 全局特征：当前集群情况，有多少机器空闲，有多少机器运行中，有多少task在排队
-        features = [cluster.cpu_capacity, cluster.memory_capacity, cluster.cpu, cluster.memory, cluster.mips, len(cluster.running_task_instances), 
-                    len(cluster.finished_tasks), len(cluster.ready_unfinished_tasks), len(cluster.job), len(cluster.finished_job), len(cluster.unfinished_jobs)]
+        features = [cluster.cpu_capacity, cluster.memory_capacity/1024, cluster.cpu, cluster.memory/1024, cluster.mips, len(cluster.running_task_instances), 
+                    len(cluster.finished_tasks), len(cluster.ready_unfinished_tasks), len(cluster.jobs), len(cluster.finished_jobs), len(cluster.unfinished_jobs)]
+        # features = [cluster.cpu_capacity, cluster.memory_capacity/1024, cluster.cpu, cluster.memory/1024, cluster.mips, len(cluster.running_task_instances), 
+        #             len(cluster.finished_tasks), len(cluster.ready_unfinished_tasks)]
         return features
 
     def __call__(self, cluster, clock):
@@ -166,10 +176,10 @@ class PGnet(object):
                 if machine.accommodate(task) and task.ready:
                     all_candidates.append((machine, task))
                     task_set.append((task.task_index, task.ready))
-        print(len(all_candidates), clock)
+        # print(len(all_candidates), clock)
         if len(all_candidates) == 0:
             reward = self.reward_giver.get_reward()
-            self.current_trajectory.append(Node(None, None, None, reward, clock))
+            self.current_trajectory.append(Node(None, None, None, None, reward, clock))
             self.scheduleflow.append((None, None, reward,clock))
             return None, None
         else:
@@ -182,20 +192,25 @@ class PGnet(object):
             features = np.hstack((features, global_features))
             features = torch.tensor(np.array(features), dtype=torch.float).to(self.device)
             # 选择动作概率密度
-            action_logits = self.agent.select_action(features)
+            action_logits = self.agent.select_action(features, temperature=1)
             action_distribution = torch.distributions.Categorical(action_logits)
             # 采样动作
             action = action_distribution.sample()
             action_item = action.item()
+            
             if action_item == len(all_candidates):
                 reward = self.reward_giver.get_reward()
-                self.current_trajectory.append(Node(features, action, action_distribution.log_prob(action), reward, clock))
+                
+                self.current_trajectory.append(Node(features, action, action_logits[action_item], action_distribution.log_prob(action), reward, clock))
                 self.scheduleflow.append((None, None, reward, clock))
                 return None, None
-            node = Node(features, action, action_distribution.log_prob(action), 0, clock)
+            
             # target_machine = all_candidates[action_item][0]
             # target_task = all_candidates[action_item][1]
             # print('machine:{}, task:{}, clock:{}'.format(target_machine.id, target_task.task_index, clock))
+            
+
+            node = Node(features, action, action_logits[action_item], action_distribution.log_prob(action), 0, clock)
             self.current_trajectory.append(node)
             self.scheduleflow.append((all_candidates[action_item][0], all_candidates[action_item][1], 0, clock))
         return all_candidates[action_item]
