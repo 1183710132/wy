@@ -3,6 +3,7 @@ import numpy as np
 
 def features_extract_func(task, task_instance_features):
     return [task.task_config.cpu, (task.task_config.memory-task_instance_features[3])/(task_instance_features[2]-task_instance_features[3]),
+            task.EST, task.EFT, task.LFT,
             task.feature['first_layer_task'], task.feature['first_layer_instance'],
             task.feature['layers_task'], task.feature['child_task_numbers']]
 

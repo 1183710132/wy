@@ -42,7 +42,7 @@ for fileName in os.listdir(directory):
             # dataFrame['instances_num'].append(1)
             dataFrame['instances_num'].append(1)
             memory = int(task['@size'])
-            dataFrame['memory'].append(memory/1024)
+            dataFrame['memory'].append(memory)
             dataFrame['status'].append('Terminated')
             dataFrame['cpu'].append(1)
             dataFrame['job_id'].append(job_id)

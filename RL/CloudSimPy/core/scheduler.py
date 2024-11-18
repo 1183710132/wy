@@ -17,17 +17,17 @@ class Scheduler(object):
         self.simulation = simulation
         self.cluster = simulation.cluster
 
-    def make_decision(self):
+    def make_decision(self, temperature=1):
         while True:
-            machine, task = self.algorithm(self.cluster, self.env.now)
+            machine, task = self.algorithm(self.cluster, self.env.now, temperature=temperature)
             if machine is None or task is None:
                 break
             else:
                 task.start_task_instance(machine)
 
-    def run(self, max_step=1000):
+    def run(self, max_step=1000, temperature=1):
         while not self.simulation.finished:
-            self.make_decision()
+            self.make_decision(temperature=temperature)
             yield self.env.timeout(1)
             if self.env.now > max_step:
                 break

@@ -19,6 +19,6 @@ class Episode(object):
 
         self.simulation = Simulation(self.env, cluster, task_broker, scheduler, event_file)
 
-    def run(self, max_step=1000):
-        self.simulation.run(max_step=max_step)
+    def run(self, max_step=1000, temperature=1):
+        self.simulation.run(max_step=max_step, temperature=temperature)
         self.env.run()

@@ -7,14 +7,18 @@ class TaskInstanceConfig(object):
 
 
 class TaskConfig(object):
-    def __init__(self, task_index, instances_number, cpu, memory, disk, duration, parent_indices=None):
-        self.task_index = task_index
-        self.instances_number = instances_number
-        self.cpu = cpu
-        self.memory = memory
-        self.disk = disk
-        self.duration = duration
-        self.parent_indices = parent_indices
+    def __init__(self, serise):
+        self.task_index = serise.task_id
+        self.instances_number = serise.instances_num
+        self.cpu = serise.cpu
+        self.memory = serise.memory
+        self.disk = serise.disk
+        self.duration = serise.duration
+        self.parent_indices = serise.parents
+        self.MET = serise.MET
+        self.EST = serise.EST
+        self.EFT = serise.EFT
+        self.LFT = serise.LFT
 
 
 class JobConfig(object):
@@ -27,3 +31,4 @@ class JobConfig(object):
         else:
             parent_indices = task_configs[0].parent_indices
         self.parent_indices = parent_indices
+

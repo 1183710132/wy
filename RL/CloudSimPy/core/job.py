@@ -16,6 +16,18 @@ class Task(object):
             self.task_instances.append(TaskInstance(self.env, self, task_instance_index, task_instance_config))
         self.next_instance_pointer = 0
 
+        self.MET = task_config.MET # 执行时间
+        self.LFT = task_config.LFT # 最晚完成时间 LFT=min{LFT(children) - MET(children)}
+        self.AST = None # 实际开始时间
+
+    @property
+    def EST(self):
+        return self.job.EST
+
+    @property
+    def EFT(self):
+        return self.EST + self.MET
+
     @property
     def id(self):
         return str(self.job.id) + '-' + str(self.task_index)
@@ -103,10 +115,17 @@ class Job(object):
         self.job_config = job_config
         self.id = job_config.id
 
+        self.EST = None
+        self.EFT = 0
+        self.LFT = 0
+
         self.tasks_map = {}
         for task_config in job_config.task_configs:
             task_index = task_config.task_index
             self.tasks_map[task_index] = Job.task_cls(env, self, task_config)
+            self.EST = task_config.EST
+            self.EFT = max(self.EFT, task_config.EFT)
+            self.LFT = max(self.LFT, task_config.LFT)
         
         self._parents = None
         self.cluster = None

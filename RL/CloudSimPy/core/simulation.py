@@ -26,14 +26,14 @@ class Simulation(object):
         # 注册到调度器中
         self.scheduler.attach(self)
 
-    def run(self, max_step=1000):
+    def run(self, max_step=1000, temperature=1):
         # Starting monitor process before task_broker process
         # and scheduler process is necessary for log records integrity.
         # 这里启动仿真过程，启动了监控进程，作业提交模块和调度器模块
         if self.event_file is not None:
             self.env.process(self.monitor.run())
         self.env.process(self.task_broker.run())
-        self.env.process(self.scheduler.run(max_step=max_step))
+        self.env.process(self.scheduler.run(max_step=max_step, temperature=temperature))
 
     @property
     def finished(self):
