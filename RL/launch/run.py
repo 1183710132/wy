@@ -23,14 +23,14 @@ job_num = 30
 train_iter = 20
 
 # 初始化奖励函数
-reward_giver = MakespanRewardGiver(-1)
+reward_giver = ComputePriceRewardGiver(-1)
 hidden_dim = 128
 input_dim = 22
 
-model_path = os.getcwd()+'/model/{}'.format('A2CV1')
+model_path = os.getcwd()+'/model/{}'.format('A2CV2')
 
 # 要注意如果机器的cpu或者memory不够，就永远不会训练结束
-machine_config = [MachineConfig(2, 2048, 1, mips=20*math.pow(4, i), price=1*(i+1)) for i in range(machine_num)]
+machine_config = [MachineConfig(1, 2048, 1, mips=20*math.pow(4, i), price=1*(i+1)) for i in range(machine_num)]
 
 def set_seed(seed):
     """
@@ -203,15 +203,15 @@ def test_train():
     job_file = os.getcwd() + '/csv_2/10/CyberShake_10_1.csv'
     max_step = 1000
     for i in range(10):
-        step = test(agent, job_file, temperature=5)
+        step = test(agent, job_file, temperature=10)
         max_step = min(step, max_step)
-    loss_list, makespan = train(agent, job_file, max_step=max_step, temperature=5)
+    loss_list, makespan = train(agent, job_file, max_step=max_step, temperature=10)
     plt.figure()
     # plt.plot(range(len(loss_list)), loss_list)
     plt.plot(range(len(loss_list)), loss_list)
     plt.show()
     for i in range(10):
-        test(agent, job_file, temperature=5)
+        test(agent, job_file, temperature=10)
 
 if __name__ == '__main__':
     # read_data()

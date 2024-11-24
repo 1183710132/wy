@@ -57,4 +57,4 @@ class ComputePriceRewardGiver(MakespanRewardGiver):
         price = 0
         for m in machines:
             price += (m.machine_config.cpu-m.cpu)*m.price
-        return self.reward_per_timestamp - price
+        return price
