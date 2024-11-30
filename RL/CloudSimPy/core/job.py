@@ -19,6 +19,10 @@ class Task(object):
         self.MET = task_config.MET # 执行时间
         self.LFT = task_config.LFT # 最晚完成时间 LFT=min{LFT(children) - MET(children)}
         self.AST = None # 实际开始时间
+    
+    @property
+    def rankScore(self):
+        return self.task_config.rankScore
 
     @property
     def EST(self):
@@ -132,7 +136,6 @@ class Job(object):
 
         self._ready = False
         self._finished = False
-
     
     def attach(self, cluster):
         self.cluster = cluster

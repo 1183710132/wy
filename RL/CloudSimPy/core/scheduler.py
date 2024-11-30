@@ -24,6 +24,8 @@ class Scheduler(object):
                 break
             else:
                 task.start_task_instance(machine)
+                met = task.task_config.memory / machine.mips
+                task.MET = met
 
     def run(self, max_step=1000, temperature=1):
         while not self.simulation.finished:

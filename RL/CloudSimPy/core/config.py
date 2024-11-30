@@ -7,7 +7,7 @@ class TaskInstanceConfig(object):
 
 
 class TaskConfig(object):
-    def __init__(self, serise):
+    def __init__(self, serise, deadline, pretrain=False):
         self.task_index = serise.task_id
         self.instances_number = serise.instances_num
         self.cpu = serise.cpu
@@ -15,10 +15,14 @@ class TaskConfig(object):
         self.disk = serise.disk
         self.duration = serise.duration
         self.parent_indices = serise.parents
-        self.MET = serise.MET
-        self.EST = serise.EST
-        self.EFT = serise.EFT
-        self.LFT = serise.LFT
+        self.EST = serise.initial_EST
+        self.EFT = serise.initial_EFT
+        self.LFT = serise.initial_LFT
+        self.MET = serise.initial_MET
+        self.deadline = deadline
+        if pretrain:
+            self.vmid = serise.VmId
+            self.rankScore = serise.rankScore
 
 
 class JobConfig(object):

@@ -2,11 +2,26 @@ from core.machine import Machine
 import math
 
 class Cluster(object):
+
     def __init__(self):
         self.machines = []
         self.jobs = []
         self.all_jobs = {}
         self.task_instance_features = []
+        self.all_tasks = {}
+        self.task_edge_index = []
+        self._edge_index = None
+
+    @property
+    def edge_index(self):
+        if self._edge_index is None or len(self._edge_index) == 0:
+            keys = list(self.all_tasks.keys())
+            self._edge_index = []
+            for item in self.task_edge_index:
+                source = keys.index(item[0])
+                target = keys.index(item[1])
+                self._edge_index.append([source, target])
+        return self._edge_index
 
     @property
     def unfinished_jobs(self):
@@ -75,6 +90,7 @@ class Cluster(object):
     def add_job(self, job):
         self.jobs.append(job)
         self.all_jobs[job.id] = job
+        self.all_tasks = self.all_tasks | job.tasks_map
 
     @property
     def cpu(self):
@@ -118,3 +134,4 @@ class Cluster(object):
             'memory': self.memory / self.memory_capacity,
             'disk': self.disk / self.disk_capacity,
         }
+

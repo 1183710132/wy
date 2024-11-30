@@ -37,7 +37,7 @@ class DRL(object):
     
     def features_extract_func(self, task, task_instance_features):
         return [task.task_config.cpu, (task.task_config.memory-task_instance_features[3])/(task_instance_features[2]-task_instance_features[3]),
-                task.EST/10, task.EFT/10, task.LFT/10,
+                task.EST/task.task_config.deadline, task.EFT/task.task_config.deadline, task.LFT/1000,
                 task.feature['first_layer_task'], task.feature['first_layer_instance'],
                 task.feature['layers_task'], task.feature['child_task_numbers']]
     
