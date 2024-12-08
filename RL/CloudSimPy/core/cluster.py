@@ -17,10 +17,13 @@ class Cluster(object):
         if self._edge_index is None or len(self._edge_index) == 0:
             keys = list(self.all_tasks.keys())
             self._edge_index = []
+            sources = []
+            targets = []
             for item in self.task_edge_index:
-                source = keys.index(item[0])
-                target = keys.index(item[1])
-                self._edge_index.append([source, target])
+                sources.append(keys.index(item[0]))
+                targets.append(keys.index(item[1]))
+
+            self._edge_index.append([sources, targets])
         return self._edge_index
 
     @property

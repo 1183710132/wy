@@ -55,6 +55,10 @@ class ComputePriceRewardGiver(MakespanRewardGiver):
         super().get_reward()
         machines = self.simulation.cluster.machines
         price = 0
+        len_m = len(machines)//2
         for m in machines:
-            price += (m.machine_config.cpu-m.cpu)*m.price
+            if m.id < len_m and m.machine_door.value < 3:
+                price += m.price
+            elif m.id >= len_m and m.machine_door.value == 0:
+                price += m.price
         return price

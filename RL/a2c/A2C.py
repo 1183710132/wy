@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import copy
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv,GATConv
 
 
 class Actor_Critic(nn.Module):
@@ -55,10 +55,13 @@ class Node(object):
 
 
 class WorkflowGCN(torch.nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim):
+    def __init__(self, input_dim, hidden_dim, output_dim, heads=4, gat=False):
         super(WorkflowGCN, self).__init__()
         self.conv1 = GCNConv(input_dim, hidden_dim)
         self.conv2 = GCNConv(hidden_dim, output_dim)
+        if gat:
+            self.conv1 = GATConv(input_dim, hidden_dim, heads=heads, concat=True, dropout=0.6)
+            self.conv2 = GATConv(hidden_dim * heads, output_dim, heads=1, concat=False, dropout=0.6)
 
     def forward(self, x, edge_index):
         # 第一层图卷积
@@ -70,14 +73,14 @@ class WorkflowGCN(torch.nn.Module):
 
 class Agent(object):
 
-    def __init__(self, hidden_dim, input_dim, lr=0.01, gamma=0.99, output_dim=16, is_gcn=False):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        # self.device = torch.device('cpu')
+    def __init__(self, hidden_dim, input_dim, lr=0.01, gamma=0.99, gcn_input_dim=9, gcn_hidden_dim=32, gcn_output_dim=8, is_gcn=False):
+        # self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cpu')
         self.gamma = gamma
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.output_dim = 1
-        self.gcn = WorkflowGCN(self.input_dim, self.hidden_dim, output_dim)
+        self.gcn = WorkflowGCN(gcn_input_dim, gcn_hidden_dim, gcn_output_dim).to(self.device)
         self.network = Actor_Critic(self.input_dim, self.hidden_dim, self.output_dim).to(self.device)
         self.actor_optimizer = torch.optim.Adam(self.network.actor_layer.parameters(), lr=lr)
         self.critic_optimizer = torch.optim.Adam(self.network.critic_layer.parameters(), lr=2*lr)
@@ -87,7 +90,6 @@ class Agent(object):
         logits, values = self.network.forward(observation, t=temperature)
         # 这里有个bug，如果只有一个候选时，直接squeeze shape=[]，应该保留一维
         return torch.squeeze(logits, dim=-1), torch.squeeze(values, dim=-1)
-    
 
     def _compute_adv(self, actions, rewards):
         res = []
@@ -113,16 +115,15 @@ class Agent(object):
         re_min = np.min(sum_)
         return res, re_max, re_min
 
-    def update_parameters(self, observations, actions, actions_logpro, rewards, advs, lamb=0.1):
+    def update_parameters(self, observations, actions, actions_logpro, rewards, advs, lamb=0.1, is_a2c=False):
         act_loss = []
         crt_loss = []
         entropy = []
 
         # 对adv进行归一化
         adv_n = sum(advs, [])
-        adv_max = torch.stack(adv_n).max().item()
-        adv_min = torch.stack(adv_n).min().item()
-        adv_max_min = adv_max-adv_min
+        adv_mean = torch.stack(adv_n).mean().item()
+        adv_std = torch.stack(adv_n).std().item() + 1e-8
         
         # 奖励归一化
         rewards, reward_max, reward_min  = self._compute_adv(actions, rewards)
@@ -136,19 +137,19 @@ class Agent(object):
                     continue
                 # if alp > -1e-5:
                 #     alp -= 1e-5
-                v = (v-adv_min)/ (adv_max_min)
+                v = (v-adv_mean)/ adv_std
                 r = (r-reward_min)/rmax_min
                 # l1.append(-alp * (r-v))
                 l1.append(-alp * r)
                 e.append(-a * alp)
-                l2.append(r - v)
+                l2.append((r - v).pow(2))
 
             # actor损失
             act_loss.append(torch.stack(l1).sum())
             # 熵
             entropy.append(torch.stack(e).sum())
             # critic损失
-            crt_loss.append(torch.stack(l2).pow(2).sum())
+            crt_loss.append(torch.stack(l2).sum())
 
         # 对模型进行熵正则化惩罚
         print()
@@ -160,8 +161,10 @@ class Agent(object):
         
         crt_loss = torch.stack(crt_loss).mean()
 
-        # loss = act_loss + crt_loss
-        loss = act_loss
+        if is_a2c:
+            loss = act_loss + crt_loss
+        else:
+            loss = act_loss
 
         self.critic_optimizer.zero_grad()
         self.actor_optimizer.zero_grad()
@@ -174,8 +177,7 @@ class Agent(object):
         # self.critic_optimizer.zero_grad()
         # self.actor_optimizer.zero_grad()
 
-
-    def pretrain(self, actions, rewards, advs, action_cross_loss):
+    def pretrain(self, actions, rewards, advs, action_cross_loss, is_a2c = True):
         # 预训练中，需要对action_logits进行交叉熵损失和value进行均方差损失
         act_loss = []
         crt_loss = []
@@ -208,9 +210,10 @@ class Agent(object):
         crt_loss = torch.stack(l2).sum()
         
         self.loss = act_loss.item()
-
-        loss = act_loss + crt_loss
-        # loss = act_loss 
+        if is_a2c :
+            loss = act_loss + crt_loss
+        else:
+            loss = act_loss 
 
         self.critic_optimizer.zero_grad()
         self.actor_optimizer.zero_grad()

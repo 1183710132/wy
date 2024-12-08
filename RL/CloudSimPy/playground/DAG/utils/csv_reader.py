@@ -143,6 +143,7 @@ class CSVReaderPretrain(object):
         df.instances_num = df.instances_num.astype(dtype=int)
         df['parents'] = df['parents'].apply(ast.literal_eval)
         df['children'] = df['children'].apply(ast.literal_eval)
+        self.df = df
         self.deadline = df['LFT'].max()
         job_task_map = {}
         job_submit_time_map = {}

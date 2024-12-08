@@ -34,64 +34,24 @@ def task_features(job):
     child_indices = {}
     father_indices = {}
     tasks = job.tasks_map.values()
-    for task in tasks:
-        task_index = task.task_config.task_index
-        task_parent_indices = task.task_config.parent_indices
-        father_indices[task_index] = task_parent_indices
-        child_indices[task_index] = []
-        for parent_indice in task_parent_indices:
-            child_indice = child_indices.setdefault(parent_indice, [])
-            child_indice.append(task_index)
-
-    descendant_indices = {}
-    descendant_indice = []
-    for task_index, child_index in child_indices.items():
-        descendant_indice = child_index[:]
-        for i in child_index:
-            descendant_indice += child_indices[i]
-        descendant_indice = list(set(descendant_indice))
-        descendant_indices.update({task_index: descendant_indice})
-
     task_features = {}
-    queue = []
-    for task_index in child_indices.keys():
-
-        child_index = child_indices[task_index]
-        task_feature = task_features.setdefault(task_index, {})
-        task_feature['first_layer_task'] = len(child_index)
-        task_feature['first_layer_instance'] = 0
-        for child in child_index:
-            task_feature['first_layer_instance'] += job.tasks_map[child].task_config.instances_number
-        task_feature['layers_task'] = 0
-
-        task_feature['child_task_numbers'] = len(descendant_indices[task_index])
-        task_feature['child_instance_numbers'] = 0
-        for descendant_indice in descendant_indices[task_index]:
-            task_feature['child_instance_numbers'] += job.tasks_map[descendant_indice].task_config.instances_number
-
-    # print(father_indices)
-    # print(child_indices)
-    # print(descendant_indices)
-    for task_index, child_index in child_indices.items():
-
-        if not child_index:
-            queue.append(task_index)
-
-            while queue:
-                child_node = queue.pop()
-                # print('************')
-                # print(child_node)
-                if child_node not in father_indices.keys():
-                    continue
-                father_nodes = father_indices[child_node]
-                queue += father_nodes
-                for father_node in father_nodes:
-                    father_feature = task_features[father_node]
-                    child_feature = task_features[child_node]
-                    father_feature['layers_task'] = child_feature['layers_task'] + 1 if father_feature[
-                                                                                            'layers_task'] == 0 else max(
-                        father_feature['layers_task'], child_feature['layers_task'] + 1)
-
+    # 有多少孩子节点
+    # 有多少同级节点
+    # 同级节点memory占比
+    layer_task_num = len(tasks)
+    memory_count = 0
+    for task in tasks:
+        task_index = task.task_index
+        task_feature = {}
+        task_feature['children_task_num'] = len(task.task_config.children)
+        task_feature['layer_task_num'] = layer_task_num
+        task_feature['task_memory_percent'] = task.task_config.memory
+        task_feature['parents_job_num'] = len(task.task_config.parent_indices)
+        memory_count += task.task_config.memory
+        task_features[task_index] = task_feature
+    for task in tasks:
+        task_index = task.task_index
+        task_features[task_index]['task_memory_percent'] = task.task_config.memory / memory_count
     return task_features
 
 

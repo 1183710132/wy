@@ -15,9 +15,10 @@ class TaskConfig(object):
         self.disk = serise.disk
         self.duration = serise.duration
         self.parent_indices = serise.parents
+        self.children = serise.children
         self.EST = serise.initial_EST
         self.EFT = serise.initial_EFT
-        self.LFT = serise.initial_LFT
+        self.LFT = serise.initial_LFT - 1000 + deadline
         self.MET = serise.initial_MET
         self.deadline = deadline
         if pretrain:

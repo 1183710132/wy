@@ -24,8 +24,8 @@ class DRL(object):
         self.actions = []
         self.reward = []
         self.current_trajectory = []
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        # self.device = torch.device('cpu')
+        # self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cpu')
         self.scheduleflow = []
 
     def extract_features(self, valid_pairs, task_instance_features):
@@ -36,10 +36,11 @@ class DRL(object):
         return features
     
     def features_extract_func(self, task, task_instance_features):
+        dl = task.task_config.deadline
         return [task.task_config.cpu, (task.task_config.memory-task_instance_features[3])/(task_instance_features[2]-task_instance_features[3]),
-                task.EST/task.task_config.deadline, task.EFT/task.task_config.deadline, task.LFT/1000,
-                task.feature['first_layer_task'], task.feature['first_layer_instance'],
-                task.feature['layers_task'], task.feature['child_task_numbers']]
+                task.EST/dl, task.EFT/dl, task.LFT/dl,
+                task.feature['children_task_num'], task.feature['layer_task_num'],
+                task.feature['task_memory_percent'], task.feature['parents_job_num']]
     
     def global_features(self, cluster, clock):
         # 全局特征：当前集群情况，有多少机器空闲，有多少机器运行中，有多少task在排队
@@ -51,7 +52,9 @@ class DRL(object):
 
     def __call__(self, cluster, clock, temperature=1):
         # 先从集群获取所有的机器和等待调度的任务
-        machines = cluster.machines
+        if clock == 0:
+            return None, None
+        machines = cluster.machines[:len(cluster.machines)//2]
         tasks = cluster.ready_tasks_which_has_waiting_instance
         all_candidates = []
         task_set = []

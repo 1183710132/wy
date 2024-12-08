@@ -43,13 +43,13 @@ def read_csv(file_name, deadline=1000.0):
     df['job_id'] = df['job_id'].astype(str)
     df['task_id'] = df['task_id'].astype(str)
     df['parents'] = df['parents'].apply(ast.literal_eval)
-    df['EST'] = 0.0
-    df['EFT'] = 0.0
-    df['MET'] = df['memory'] / mips
+    df['EST'] = 0
+    df['EFT'] = 0
+    df['MET'] = np.ceil(df['memory'] / mips).astype(int)
     df['LFT'] = deadline
     df['AST'] = deadline
     df['VmId'] = -1
-    df['ru'] = -1
+    df['ru'] = -1.0
     df['children'] = [[] for _ in range(len(df))]
 
     children_map = defaultdict(list)
@@ -79,7 +79,7 @@ class CEDA(object):
         for idx, row in df.iterrows():
             task_id = idx
             memory = row['memory']
-            self.task_run_time[task_id] = [memory/machine.mips for machine in total_machine]
+            self.task_run_time[task_id] = [np.ceil(memory/machine.mips).astype(int) for machine in total_machine]
         return 
 
     def initial_EST_EFT(self):
@@ -188,8 +188,10 @@ class CEDA(object):
                 #         vm = m_id
                 #         min_sum = sum
         if vm >= 0:
-            self.deadline = max(self.deadline, min_sum + self.task_run_time[task][m_id])
-            self.vm_run_time[vm].append((min_sum, min_sum + self.task_run_time[task][m_id]))
+            self.deadline = max(self.deadline, min_sum + self.task_run_time[task][vm])
+            self.vm_run_time[vm].append((min_sum, min_sum + self.task_run_time[task][vm]))
+            self.df.loc[task, 'EST'] = min_sum
+            # print('task: ', task, ' start in vm ', vm, ' time', min_sum)
         else:
             # to do
             # 如果预留池中不满足条件，就要从租赁池中进行租赁
@@ -205,9 +207,9 @@ class CEDA(object):
             # 找到父节点中最大的eft，更新
             parents = df.loc[t, 'parents']
             if len(parents) > 0:
-                df.loc[t, 'EST'] = df.loc[df['job_id'].isin(parents), 'EFT'].max()
+                df.loc[t, 'EST'] = max(df.loc[df['job_id'].isin(parents), 'EFT'].max(), df.loc[t, 'EST'])
             if df.loc[t, 'VmId'] > -1:
-                df.loc[t, 'MET'] = df.loc[t, 'memory']/total_machine[df.loc[t, 'VmId']].mips
+                df.loc[t, 'MET'] = np.ceil(df.loc[t, 'memory']/total_machine[df.loc[t, 'VmId']].mips).astype(int)
             df.loc[t, 'EFT'] = df.loc[t, 'EST'] + df.loc[t, 'MET']
             # 找到孩子节点，孩子节点入队
             children = df.loc[t, 'children']
@@ -221,7 +223,7 @@ class CEDA(object):
             t = queue.popleft()
             children = df.loc[t, 'children']
             if df.loc[t, 'VmId'] > -1:
-                df.loc[t, 'MET'] = df.loc[t, 'memory']/total_machine[df.loc[t, 'VmId']].mips
+                df.loc[t, 'MET'] = np.ceil(df.loc[t, 'memory']/total_machine[df.loc[t, 'VmId']].mips).astype(int)
             if len(children) > 0:
                 df.loc[t, 'LFT'] = df.loc[children, 'LFT'].max() - df.loc[t, 'MET']
             parents = df.loc[t, 'parents']
@@ -253,7 +255,7 @@ class CEDA(object):
                     continue
                 df.loc[task, 'ru'] = ru_time + df.loc[task, 'MET']
                 stack.pop()
-        df['rankScore'] = df['ru'].rank(method='dense', ascending=False).astype(int)
+        
         self.df = df
 
     def assign_vm_to_task(self, sorted_tasks):
@@ -269,15 +271,16 @@ class CEDA(object):
 if __name__=='__main__':
     create_vm(machine_type, machine_num, total_machine)
     # task_type = ['CyberShake', 'Genome', 'Montage', 'SIPHT']
-    task_type = ['CyberShake']
+    task_type = ['Genome']
     job_num = 10
-    file_num = 1000
+    file_num = 5000
     task_num = [10]
 
     for ty in task_type:
         for t_num in task_num:
-            for i in range(file_num):
-                job_file = os.getcwd() + '/csv_2/{}/{}_{}_{}.csv'.format(t_num, ty, job_num, i)
+            for i in range(463, file_num):
+                job_file = os.getcwd() + '/csv_2/{}/{}/{}_{}_{}.csv'.format(t_num, ty, ty, job_num, i)
+                print('job num ', job_num, i)
                 df = read_csv(job_file)
                 ceda = CEDA(df, machine_config, total_machine)
                 start_jobs = ceda.initial_EST_EFT()
@@ -287,5 +290,11 @@ if __name__=='__main__':
                 sorted_task_ids_desc = ceda.df.sort_values(by='ru', ascending=False).index.tolist()
                 ceda.assign_vm_to_task(sorted_task_ids_desc)
                 ceda.df['LFT'] += ceda.deadline - 1000
-                ceda.df.to_csv(os.getcwd() + '/csv_pretrain_ceda/{}/{}_{}_{}.csv'.format(t_num, ty, job_num, i))
+                # 按 'EST' 从小到大排序，根据ru从大到小进行排序，根据MET从小到大进行排序，并生成唯一的 rankScore
+                sorted_df = ceda.df.sort_values(by=['EST', 'ru'], ascending=[True, False])
+                # 为排序后的 DataFrame 添加 rankScore
+                sorted_df['rankScore'] = range(1, len(ceda.df) + 1)
+                # 恢复原来的索引
+                ceda.df['rankScore'] = sorted_df['rankScore']
+                ceda.df.to_csv(os.getcwd() + '/csv_pretrain_ceda/{}/{}/{}_{}_{}.csv'.format(t_num, ty, ty, job_num, i))
                 print()

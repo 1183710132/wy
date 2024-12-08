@@ -10,27 +10,55 @@ import random
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from CloudSimPy.core.machine import MachineConfig
 
-from CloudSimPy.playground.DAG.utils.csv_reader import CSVReader
+from CloudSimPy.playground.DAG.utils.csv_reader import CSVReaderPretrain
 from CloudSimPy.playground.DAG.utils.feature_functions import features_extract_func
 from CloudSimPy.playground.DAG.algorithm.DeepJS.reward_giver import MakespanRewardGiver, ComputePriceRewardGiver
 from CloudSimPy.playground.DAG.adapter.episode import Episode
 from a2c.A2C import Actor_Critic, Agent
 from DRL.DRL import DRL, Node
 
+is_gcn = False
+
+if not is_gcn:
+    from DRL.DRL_pretrain import DRLPretrain
+    from DRL.DRL import DRL
+    input_dim = 22
+else:
+    input_dim = 21
+    from DRL.DRL_gcn import DRL
+    from DRL.DRL_gat_pretrain import DRLPretrain
+
 # 初始化仿真数据
-machine_num = 2
-job_num = 30
-train_iter = 20
+job_num = 10
+is_a2c = True
+train_iter = 50
 
 # 初始化奖励函数
-reward_giver = ComputePriceRewardGiver(-1)
-hidden_dim = 128
-input_dim = 22
+# reward_giver = ComputePriceRewardGiver(-1)
+reward_giver = MakespanRewardGiver(-1)
+hidden_dim = 64
 
-model_path = os.getcwd()+'/model/{}'.format('A2CV2')
+read_model_path = os.getcwd()+'/model/pretrain/{}'.format('a2c_file_5000_job_10_task_10')
+save_model_path = os.getcwd()+'/model/train/{}'.format('a2c_file_5000_job_10_task_10')
+
+machine_config = {'stay':[], 'rent':[]}
+machine_type = {'F2':[2, 4, 0.192, 0.1539], 'F4':[4, 8, 0.383, 0.3099], 'F8':[8, 16, 0.766, 0.6158]}
+machine_num = {'F2': [4, 4], 'F4':[4, 4], 'F8':[4, 4]}
+total_machine = []
 
 # 要注意如果机器的cpu或者memory不够，就永远不会训练结束
-machine_config = [MachineConfig(1, 2048, 1, mips=20*math.pow(4, i), price=1*(i+1)) for i in range(machine_num)]
+def create_vm(machine_type, machine_num, total_machine):
+    for key, value in machine_num.items():
+        m_type = machine_type[key]
+        stay_machine = [MachineConfig(1, m_type[1]*1024, 1, mips=10*m_type[0], price=m_type[3]) for _ in range(value[0])]
+        machine_config['stay'] += stay_machine
+        total_machine += stay_machine
+    
+    for key, value in machine_num.items():
+        m_type = machine_type[key]
+        rent_machine = [MachineConfig(1, m_type[1]*1024, 1, mips=10*m_type[0], price=m_type[3]) for _ in range(value[1])]
+        machine_config['rent'] += rent_machine
+        total_machine += rent_machine
 
 def set_seed(seed):
     """
@@ -56,9 +84,9 @@ def getTracjectory(trajectory, clock, max_step=1000):
     rewards = []
     advs = []
     step = len(trajectory)
-    xita = 0
+    xita = clock
     if clock >= max_step:
-        xita = 1000000
+        xita = 10000
     for node in trajectory:
         if node.observation is None:
             continue
@@ -68,9 +96,8 @@ def getTracjectory(trajectory, clock, max_step=1000):
         actions_logpro.append(node.action_logpro)
         rewards.append(node.reward)
         advs.append(node.adv)
-    rewards[-1] -= xita
+    # rewards[-1] -= xita*xita
     return observations, actions, actions_prob, actions_logpro, rewards, advs
-
 
 def getFlowPriceReward(scheduleflow):
     prices = []
@@ -85,9 +112,10 @@ def getFlowPriceReward(scheduleflow):
     return prices
 
 
-def train(agent, job_data, max_step=1000, temperature=1):
+def train(agent, job_data, max_step=1000, temperature=1, deadline_xita=1):
     loss_list = []
-    csv_reader = CSVReader(job_data, machine_config)
+    csv_reader = CSVReaderPretrain(job_data, total_machine)
+    deadline = csv_reader.deadline * deadline_xita
     job_config, task_instance_features = csv_reader.generate(0, job_num)
     min_span = max_step
     for step in range(train_iter):
@@ -107,7 +135,7 @@ def train(agent, job_data, max_step=1000, temperature=1):
         simulation_num = 10
         for i in range(simulation_num):
             algorithm = DRL(agent, reward_giver)
-            episode = Episode(machine_config, job_config, algorithm, None)
+            episode = Episode(total_machine, job_config, algorithm, None)
             episode.simulation.cluster.task_instance_features = task_instance_features
             algorithm.reward_giver.attach(episode.simulation)
             episode.run(max_step=1000, temperature=temperature)
@@ -119,13 +147,9 @@ def train(agent, job_data, max_step=1000, temperature=1):
             print(t)
         toc = time.time()
 
-        min_step = min_span
-
         for traj, flow, clock in zip(trajectories, scheduleflows, makespans):
-            
-            min_step = min(len(traj), min_step)
 
-            observations, actions, actions_prob, actions_logpro, rewards, advs = getTracjectory(traj, clock, max_step=2*min_step)
+            observations, actions, actions_prob, actions_logpro, rewards, advs = getTracjectory(traj, clock, max_step=1.5*deadline)
             
             all_observations.append(observations)
             all_actions.append(actions_prob)
@@ -133,29 +157,23 @@ def train(agent, job_data, max_step=1000, temperature=1):
             all_rewards.append(rewards)
             all_adv.append(advs)
 
-        agent.update_parameters(all_observations, all_actions, all_actions_logpro, all_rewards, all_adv)
+        agent.update_parameters(all_observations, all_actions, all_actions_logpro, all_rewards, all_adv, is_a2c=is_a2c)
         print('loss: ', agent.loss)
         loss_list.append(agent.loss)
     
-    if not os.path.isdir(model_path):
-        os.makedirs(model_path)
-    agent.save(model_path + '/model.pth')
+    if not os.path.isdir(save_model_path):
+        os.makedirs(save_model_path)
+    agent.save(save_model_path + '/model.pth')
     return loss_list, makespans
-    # if not os.path.isdir(model_path):
-    #     os.makedirs(model_path)
-    # agent.save(model_path + '/model.pth')
-    # plt.figure()
-    # plt.plot(range(train_iter), loss_list)
-    # plt.show()
 
 def test(agent, job_data, temperature=1):
-    csv_reader = CSVReader(job_data, machine_config)
+    csv_reader = CSVReaderPretrain(job_data, total_machine)
     job_config, task_instance_features = csv_reader.generate(0, job_num)
-    if os.path.isdir(model_path):
-        if os.path.exists(model_path + '/model.pth'):
-            agent.load(model_path + '/model.pth')
+    if os.path.isdir(read_model_path):
+        if os.path.exists(read_model_path + '/model.pth'):
+            agent.load(read_model_path + '/model.pth')
     algorithm = DRL(agent, reward_giver)
-    episode = Episode(machine_config, job_config, algorithm, None)
+    episode = Episode(total_machine, job_config, algorithm, None)
     episode.simulation.cluster.task_instance_features = task_instance_features
     algorithm.reward_giver.attach(episode.simulation)
     episode.run(temperature=temperature)
@@ -182,38 +200,42 @@ def read_data():
     loss_list = []
     for t in task_type:
         for i in range(9):
-            job_data = '{}/csv_2/{}/{}_{}_{}.csv'.format(os.getcwd(), task_num, t, task_num, i)
+            job_data = '{}/csv_pretrain_ceda/{}/{}/{}_{}_{}.csv'.format(os.getcwd(), task_num, t, t, task_num, i)
             print('start in data : ', t, i)
             print('----------------------before learning-----------------')
             test(agent, job_data)
-            loss_list, _= train(agent, job_data)
+            loss, _= train(agent, job_data)
+            loss_list += loss
             print('----------------------after leanring------------------')
             test(agent, job_data)
     plt.figure()
     plt.plot(range(len(loss_list)), loss_list)
     plt.show()
-    job_data = '{}/csv_2/{}/{}_{}_{}.csv'.format(os.getcwd(), task_num, t, task_num, 9)
-    agent.save(model_path + '/model.pth')
+    job_data = '{}/csv_pretrain_ceda/{}/{}/{}_{}_{}.csv'.format(os.getcwd(), task_num, t, t, task_num, 9)
+    agent.save(save_model_path + '/model.pth')
     test(agent, job_data)
 
 
 def test_train():
     agent = Agent(hidden_dim, input_dim)
+    agent.load(read_model_path + '/model.pth')
     # job_file = os.getcwd() + '/jobs_files/job_1.csv'
-    job_file = os.getcwd() + '/csv_2/10/CyberShake_10_1.csv'
+    job_file = os.getcwd() + '/csv_pretrain_ceda/10/Cybershake/CyberShake_10_0.csv'
+    # /home/wy/project/wy/RL/csv_pretrain_ceda/10/Cybershake/CyberShake_10_0.csv
     max_step = 1000
     for i in range(10):
-        step = test(agent, job_file, temperature=10)
+        step = test(agent, job_file, temperature=1)
         max_step = min(step, max_step)
-    loss_list, makespan = train(agent, job_file, max_step=max_step, temperature=10)
+    loss_list, makespan = train(agent, job_file, max_step=max_step, temperature=1)
     plt.figure()
     # plt.plot(range(len(loss_list)), loss_list)
     plt.plot(range(len(loss_list)), loss_list)
     plt.show()
     for i in range(10):
-        test(agent, job_file, temperature=10)
+        test(agent, job_file, temperature=1)
 
 if __name__ == '__main__':
+    create_vm(machine_type, machine_num, total_machine)
     # read_data()
     # test()
     # 示例：设置随机种子
