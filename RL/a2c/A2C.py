@@ -115,7 +115,7 @@ class Agent(object):
         re_min = np.min(sum_)
         return res, re_max, re_min
 
-    def update_parameters(self, observations, actions, actions_logpro, rewards, advs, lamb=0.1, is_a2c=False):
+    def update_parameters(self, observations, actions, actions_logpro, rewards, advs, lamb=0.1, is_a2c=True):
         act_loss = []
         crt_loss = []
         entropy = []
@@ -177,7 +177,7 @@ class Agent(object):
         # self.critic_optimizer.zero_grad()
         # self.actor_optimizer.zero_grad()
 
-    def pretrain(self, actions, rewards, advs, action_cross_loss, is_a2c = True):
+    def pretrain(self, actions, rewards, advs, action_cross_loss, is_a2c=True):
         # 预训练中，需要对action_logits进行交叉熵损失和value进行均方差损失
         act_loss = []
         crt_loss = []
